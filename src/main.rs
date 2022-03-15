@@ -6,8 +6,6 @@ use rand::{Rng, thread_rng};
 
 const DARK_COLOR: (u32, u32, u32) = (0, 0, 0);
 const LIGHT_COLOR: (u32, u32, u32) = (199, 192, 177);
-const MIN_ROOM_SIZE: usize = 5;
-const MAX_ROOM_SIZE: usize = 10;
 
 fn main() {
     let mut maze = Maze::new(110, 70);
@@ -25,8 +23,8 @@ struct Maze {
     grid_size: usize,
 }
 
-#[derive(PartialEq, Eq, Hash)]
-struct Rect((usize, usize), (usize, usize));
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct Rect(usize, usize, usize, usize);
 
 impl Maze {
     fn new(grid_width: usize, grid_height: usize) -> Self {
@@ -50,7 +48,7 @@ impl Maze {
         attempts: usize
     ) {
         for _ in 0..attempts {
-            let room = self.random_rectangle(MIN_ROOM_SIZE, MAX_ROOM_SIZE);
+            let room = self.random_rectangle();
             if self.rooms.iter().all(|r| rectangles_dont_intersect(r, &room)) {
                 self.set_grid_rectangle(&room);
                 self.rooms.insert(room);
@@ -58,23 +56,26 @@ impl Maze {
         }
     }
 
-    fn random_rectangle(
-        &mut self,
-        min_size: usize,
-        max_size: usize,
-    ) -> Rect {
+    fn random_rectangle(&mut self) -> Rect {
         let mut rnd = thread_rng();
-        let (w, h) = (rnd.gen_range(min_size..=max_size), rnd.gen_range(min_size..=max_size));
-        let location = (
-            rnd.gen_range(0..self.grid_width - w),
-            rnd.gen_range(0..self.grid_height - h)
-        );
-        Rect(location, (w, h))
+        let size = rnd.gen_range(2..4) * 2 + 1;
+        let rectangularity = rnd.gen_range(0..1 + size / 2) * 2;
+
+        let (w, h) = if rnd.gen_bool(0.5) {
+            (size + rectangularity, size)
+        } else {
+            (size, size + rectangularity)
+        };
+
+        let x = rnd.gen_range(0..(self.grid_width - w) / 2) * 2 + 1;
+        let y = rnd.gen_range(0..(self.grid_height - h) / 2) * 2 + 1;
+
+        Rect(x, y, w, h)
     }
 
     fn set_grid_rectangle(
         &mut self,
-        &Rect((x, y), (w, h)): &Rect,
+        &Rect(x, y, w, h): &Rect,
     ) {
         for i in 0..h {
             for j in 0..w {
@@ -85,14 +86,14 @@ impl Maze {
 
     fn set_grid(&mut self, x: usize, y: usize) {
         // Single black border
-        self.set_rectangle(DARK_COLOR, &Rect((x, y), (self.grid_size, self.grid_size)));
-        self.set_rectangle(LIGHT_COLOR, &Rect((x + 1, y + 1), (self.grid_size - 1, self.grid_size - 1)));
+        self.set_rectangle(DARK_COLOR, &Rect(x, y, self.grid_size, self.grid_size));
+        self.set_rectangle(LIGHT_COLOR, &Rect(x + 1, y + 1, self.grid_size - 1, self.grid_size - 1));
     }
 
     fn set_rectangle(
         &mut self,
         color: (u32, u32, u32),
-        &Rect((x, y), (w, h)): &Rect,
+        &Rect(x, y, w, h): &Rect,
     ) {
         for j in y..(y+h) {
             for i in x..(x+w) {
@@ -115,8 +116,8 @@ impl Maze {
 
 // We don't use <= here in order to allow at least one space between rooms
 fn rectangles_dont_intersect(
-    &Rect((x1, y1), (w1, h1)): &Rect,
-    &Rect((x2, y2), (w2, h2)): &Rect
+    &Rect(x1, y1, w1, h1): &Rect,
+    &Rect(x2, y2, w2, h2): &Rect
 ) -> bool {
     x1 + w1 < x2 || y1 + h1 < y2 || x2 + w2 < x1 || y2 + h2 < y1
 }
