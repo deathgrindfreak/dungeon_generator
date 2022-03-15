@@ -52,8 +52,7 @@ impl Maze {
         for _ in 0..attempts {
             let room = self.random_rectangle(MIN_ROOM_SIZE, MAX_ROOM_SIZE);
             if self.rooms.iter().all(|r| rectangles_dont_intersect(r, &room)) {
-                let Rect(location, (w, h)) = room;
-                self.set_grid_rectangle(location, w, h);
+                self.set_grid_rectangle(&room);
                 self.rooms.insert(room);
             }
         }
@@ -75,9 +74,7 @@ impl Maze {
 
     fn set_grid_rectangle(
         &mut self,
-        (x, y): (usize, usize),
-        w: usize,
-        h: usize
+        &Rect((x, y), (w, h)): &Rect,
     ) {
         for i in 0..h {
             for j in 0..w {
@@ -88,16 +85,14 @@ impl Maze {
 
     fn set_grid(&mut self, x: usize, y: usize) {
         // Single black border
-        self.set_rectangle(DARK_COLOR, (x, y), self.grid_size, self.grid_size);
-        self.set_rectangle(LIGHT_COLOR, (x + 1, y + 1), self.grid_size - 1, self.grid_size - 1);
+        self.set_rectangle(DARK_COLOR, &Rect((x, y), (self.grid_size, self.grid_size)));
+        self.set_rectangle(LIGHT_COLOR, &Rect((x + 1, y + 1), (self.grid_size - 1, self.grid_size - 1)));
     }
 
     fn set_rectangle(
         &mut self,
         color: (u32, u32, u32),
-        (x, y): (usize, usize),
-        w: usize,
-        h: usize
+        &Rect((x, y), (w, h)): &Rect,
     ) {
         for j in y..(y+h) {
             for i in x..(x+w) {
