@@ -64,12 +64,18 @@ impl Maze {
     }
 
     fn do_fill_maze(&mut self, x: usize, y: usize) {
-        if self.can_cell_be_carved(x, y) {
-            self.draw_cell(x, y);
+        let mut stack = Vec::new();
+        stack.push((x, y));
 
-            self.neighbors(x, y)
-                .iter()
-                .for_each(|&(_, x, y)| self.do_fill_maze(x, y));
+        while stack.len() > 0 {
+            let (i, j) = stack.pop().unwrap();
+            if self.can_cell_be_carved(i, j) {
+                self.draw_cell(i, j);
+
+                self.neighbors(i, j)
+                    .iter()
+                    .for_each(|&(_, u, v)| stack.push((u, v)));
+            }
         }
     }
 
