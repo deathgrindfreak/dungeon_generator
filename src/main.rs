@@ -1,15 +1,14 @@
 extern crate rand;
 
-use std::collections::HashSet;
-
 use rand::{Rng, thread_rng};
+use rand::rngs::{ThreadRng};
 
 const DARK_COLOR: (u32, u32, u32) = (0, 0, 0);
 const LIGHT_COLOR: (u32, u32, u32) = (199, 192, 177);
 
 fn main() {
     let mut maze = Maze::new(110, 70);
-    maze.draw_rooms(300);
+    maze.draw_rooms(400);
     maze.print_maze();
 }
 
@@ -19,8 +18,9 @@ struct Maze {
     grid_width: usize,
     grid_height: usize,
     contents: Vec<(u32, u32, u32)>,
-    rooms: HashSet<Rect>,
+    rooms: Vec<Rect>,
     grid_size: usize,
+    rnd: ThreadRng,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -38,8 +38,9 @@ impl Maze {
             grid_width,
             grid_height,
             contents: vec![DARK_COLOR; width * height],
-            rooms: HashSet::new(),
+            rooms: Vec::new(),
             grid_size,
+            rnd: thread_rng(),
         }
     }
 
@@ -51,13 +52,13 @@ impl Maze {
             let room = self.random_rectangle();
             if self.rooms.iter().all(|r| rectangles_dont_intersect(r, &room)) {
                 self.set_grid_rectangle(&room);
-                self.rooms.insert(room);
+                self.rooms.push(room);
             }
         }
     }
 
     fn random_rectangle(&mut self) -> Rect {
-        let mut rnd = thread_rng();
+        let rnd = &mut self.rnd;
         let size = rnd.gen_range(2..4) * 2 + 1;
         let rectangularity = rnd.gen_range(0..1 + size / 2) * 2;
 
@@ -85,8 +86,7 @@ impl Maze {
     }
 
     fn set_grid(&mut self, x: usize, y: usize) {
-        // Single black border
-        self.set_rectangle(DARK_COLOR, &Rect(x, y, self.grid_size, self.grid_size));
+        // Make room for a border the color of DARK_COLOR
         self.set_rectangle(LIGHT_COLOR, &Rect(x + 1, y + 1, self.grid_size - 1, self.grid_size - 1));
     }
 
@@ -114,7 +114,7 @@ impl Maze {
     }
 }
 
-// We don't use <= here in order to allow at least one space between rooms
+// Use < instead of <= here in order to allow at least one space between rooms
 fn rectangles_dont_intersect(
     &Rect(x1, y1, w1, h1): &Rect,
     &Rect(x2, y2, w2, h2): &Rect
