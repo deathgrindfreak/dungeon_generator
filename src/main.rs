@@ -49,15 +49,15 @@ impl Maze {
         attempts: usize
     ) {
         for _ in 0..attempts {
-            let room = self.random_rectangle();
+            let room = self.gen_rectangle();
             if self.rooms.iter().all(|r| rectangles_dont_intersect(r, &room)) {
-                self.set_grid_rectangle(&room);
+                self.draw_room(&room);
                 self.rooms.push(room);
             }
         }
     }
 
-    fn random_rectangle(&mut self) -> Rect {
+    fn gen_rectangle(&mut self) -> Rect {
         let rnd = &mut self.rnd;
         let size = rnd.gen_range(2..4) * 2 + 1;
         let rectangularity = rnd.gen_range(0..1 + size / 2) * 2;
@@ -74,23 +74,25 @@ impl Maze {
         Rect(x, y, w, h)
     }
 
-    fn set_grid_rectangle(
+    fn draw_room(
         &mut self,
         &Rect(x, y, w, h): &Rect,
     ) {
         for i in 0..h {
             for j in 0..w {
-                self.set_grid((x + j) * self.grid_size, (y + i) * self.grid_size);
+                self.draw_cell((x + j) * self.grid_size, (y + i) * self.grid_size);
             }
         }
     }
 
-    fn set_grid(&mut self, x: usize, y: usize) {
+    // Graphics primitives
+
+    fn draw_cell(&mut self, x: usize, y: usize) {
         // Make room for a border the color of DARK_COLOR
-        self.set_rectangle(LIGHT_COLOR, &Rect(x + 1, y + 1, self.grid_size - 1, self.grid_size - 1));
+        self.draw_rectangle(LIGHT_COLOR, &Rect(x + 1, y + 1, self.grid_size - 1, self.grid_size - 1));
     }
 
-    fn set_rectangle(
+    fn draw_rectangle(
         &mut self,
         color: (u32, u32, u32),
         &Rect(x, y, w, h): &Rect,
