@@ -1,7 +1,8 @@
 extern crate rand;
 
+use std::slice::Iter;
 use rand::{Rng, thread_rng};
-use rand::rngs::{ThreadRng};
+use rand::rngs::ThreadRng;
 
 const DARK_COLOR: (u32, u32, u32) = (0, 0, 0);
 const LIGHT_COLOR: (u32, u32, u32) = (199, 192, 177);
@@ -9,6 +10,7 @@ const LIGHT_COLOR: (u32, u32, u32) = (199, 192, 177);
 fn main() {
     let mut maze = Maze::new(110, 70);
     maze.draw_rooms(400);
+    maze.fill_maze();
     maze.print_maze();
 }
 
@@ -18,16 +20,28 @@ struct Maze {
     grid_width: usize,
     grid_height: usize,
     contents: Vec<(u32, u32, u32)>,
+    cells: Vec<bool>,
     rooms: Vec<Rect>,
     grid_size: usize,
     rnd: ThreadRng,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Direction {N, S, E, W}
+
+impl Direction {
+    pub fn iterator() -> Iter<'static, Direction> {
+        static DIRECTIONS: [Direction; 4] =
+            [Direction::N, Direction::S, Direction::E, Direction::W];
+        DIRECTIONS.iter()
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 struct Rect(usize, usize, usize, usize);
 
 impl Maze {
-    fn new(grid_width: usize, grid_height: usize) -> Self {
+    pub fn new(grid_width: usize, grid_height: usize) -> Self {
         let grid_size = 7;
         let width = grid_width * grid_size + 1;
         let height = grid_height * grid_size + 1;
@@ -38,13 +52,49 @@ impl Maze {
             grid_width,
             grid_height,
             contents: vec![DARK_COLOR; width * height],
+            cells: vec![false; grid_width * grid_height],
             rooms: Vec::new(),
             grid_size,
             rnd: thread_rng(),
         }
     }
 
-    fn draw_rooms(
+    pub fn fill_maze(&mut self) {
+        self.do_fill_maze(0, 0)
+    }
+
+    fn do_fill_maze(&mut self, x: usize, y: usize) {
+        if self.can_cell_be_carved(x, y) {
+            self.draw_cell(x, y);
+
+            self.neighbors(x, y)
+                .iter()
+                .for_each(|&(_, x, y)| self.do_fill_maze(x, y));
+        }
+    }
+
+    fn can_cell_be_carved(&self, x: usize, y: usize) -> bool {
+        if self.is_cell_carved(x, y) { return false; }
+
+        let carved_neighbors: Vec<(Direction, usize, usize)> =
+            self.neighbors(x, y)
+                .into_iter()
+                .filter(|&(_, i, j)| self.is_cell_carved(i, j))
+                .collect();
+
+        carved_neighbors.len() <= 1
+    }
+
+    fn neighbors(&self, x: usize, y: usize) -> [(Direction, usize, usize); 4] {
+        [
+            (Direction::N, x, if y > 0 { y-1 } else { 0 }),
+            (Direction::S, x, (y+1).min(self.grid_height - 1)),
+            (Direction::E, (x+1).min(self.grid_width - 1), y),
+            (Direction::W, if x > 0 { x-1 } else { 0 }, y),
+        ]
+    }
+
+    pub fn draw_rooms(
         &mut self,
         attempts: usize
     ) {
@@ -80,14 +130,24 @@ impl Maze {
     ) {
         for i in 0..h {
             for j in 0..w {
-                self.draw_cell((x + j) * self.grid_size, (y + i) * self.grid_size);
+                self.draw_cell(x + j, y + i);
             }
         }
+    }
+
+    fn is_cell_carved(&self, x: usize, y: usize) -> bool {
+        self.cells[y * self.grid_width + x]
     }
 
     // Graphics primitives
 
     fn draw_cell(&mut self, x: usize, y: usize) {
+        // Set this here so that we're using grid coordinates
+        self.cells[y * self.grid_width + x] = true;
+
+        // Convert to pixel coordinates
+        let (x, y) = (x * self.grid_size, y * self.grid_size);
+
         // Make room for a border the color of DARK_COLOR
         self.draw_rectangle(LIGHT_COLOR, &Rect(x + 1, y + 1, self.grid_size - 1, self.grid_size - 1));
     }
