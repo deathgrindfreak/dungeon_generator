@@ -50,7 +50,7 @@ impl Direction {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Rect(pub i32, pub i32, pub i32, pub i32);
 
 impl Rect {
@@ -65,7 +65,6 @@ impl Rect {
         x as i32 <= i && i < (x + w) as i32
             && y as i32 <= j && j < (y + h) as i32
     }
-
     pub fn x(&self) -> i32 {
         self.0
     }
@@ -80,5 +79,56 @@ impl Rect {
 
     pub fn height(&self) -> i32 {
         self.3
+    }
+}
+
+impl IntoIterator for Rect {
+    type Item = Vec2D;
+    type IntoIter = RectIntoIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        RectIntoIterator {
+            rect: self,
+            cur: Vec2D(self.0, self.1),
+        }
+    }
+}
+
+pub struct RectIntoIterator {
+    rect: Rect,
+    cur: Vec2D,
+}
+
+impl Iterator for RectIntoIterator {
+    type Item = Vec2D;
+
+    fn next(&mut self) -> Option<Vec2D> {
+        let &mut RectIntoIterator{ rect: Rect(x, y, w, h), cur: Vec2D(i, j) } = self;
+
+        if j == y + h {
+            None
+        } else if i == x + w - 1 {
+            self.cur = Vec2D(x, j + 1);
+            Some(Vec2D(i, j))
+        } else {
+            self.cur = Vec2D(i + 1, j);
+            Some(Vec2D(i, j))
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_square_rect() {
+        let points: Vec<Vec2D> = Rect(1, 1, 2, 2).into_iter().collect();
+        assert_eq!(points, vec![
+            Vec2D(1, 1),
+            Vec2D(2, 1),
+            Vec2D(1, 2),
+            Vec2D(2, 2),
+        ]);
     }
 }
