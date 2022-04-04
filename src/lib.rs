@@ -1,6 +1,65 @@
 use std::ops;
 use std::slice::Iter;
 
+pub type Color = (u32, u32, u32);
+
+pub struct PPM {
+    width: i32,
+    height: i32,
+    bounds: Rect,
+    buf: Vec<Color>,
+}
+
+impl PPM {
+    pub fn new(width: i32, height: i32, init_color: Color) -> Self {
+        Self {
+            width,
+            height,
+            bounds: Rect(0, 0, width, height),
+            buf: vec![init_color; (width * height) as usize],
+        }
+    }
+
+    pub fn set(
+        &mut self,
+        &Vec2D(i, j): &Vec2D,
+        color: (u32, u32, u32),
+    ) {
+        if !self.bounds.contains(Vec2D(i, j)) {
+            panic!("Point ({}, {}) would be out of bounds ({:?})!", i, j, self.bounds);
+        }
+        self.buf[(j * self.width + i) as usize] = color;
+    }
+
+    pub fn get(
+        &self,
+        &Vec2D(i, j): &Vec2D,
+    ) -> Color {
+        self.buf[(j * self.width + i) as usize]
+    }
+
+    pub fn draw_rectangle(
+        &mut self,
+        &rect: &Rect,
+        color: (u32, u32, u32),
+    ) {
+        for v in rect.into_iter() {
+            self.set(&v, color);
+        }
+    }
+
+    pub fn print(&self) {
+        println!("P3\n{} {}\n255\n", self.width, self.height);
+
+        for j in 0..self.height {
+            for i in 0..self.width {
+                let (r, g, b) = self.get(&Vec2D(i, j));
+                println!("{} {} {}", r, g, b);
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Vec2D(pub i32, pub i32);
 
@@ -54,17 +113,20 @@ impl Direction {
 pub struct Rect(pub i32, pub i32, pub i32, pub i32);
 
 impl Rect {
-    // Use < instead of <= here in order to allow at least one space between rooms
-    pub fn is_outside_of(&self, &Rect(x2, y2, w2, h2): &Rect) -> bool {
+    pub fn distance_to(&self, &Rect(x2, y2, w2, h2): &Rect) -> Option<i32> {
         let &Rect(x1, y1, w1, h1) = self;
-        x1 + w1 < x2 || y1 + h1 < y2 || x2 + w2 < x1 || y2 + h2 < y1
+        vec![x2 - (x1 + w1), y2 - (y1 + h1), x1 - (x2 + w2), y1 - (y2 + h2)]
+            .iter()
+            .filter(|&&d| d >= 0)
+            .map(|&d| d)
+            .min()
     }
 
     pub fn contains(&self, Vec2D(i, j): Vec2D) -> bool {
         let &Rect(x, y, w, h) = self;
-        x as i32 <= i && i < (x + w) as i32
-            && y as i32 <= j && j < (y + h) as i32
+        x < i && i < (x + w - 1) && y < j && j < (y + h - 1)
     }
+
     pub fn x(&self) -> i32 {
         self.0
     }
@@ -130,5 +192,23 @@ mod test {
             Vec2D(1, 2),
             Vec2D(2, 2),
         ]);
+    }
+
+    #[test]
+    fn test_rect_distance() {
+        let distance = Rect(1, 1, 2, 2).distance_to(&Rect(4, 2, 3, 2));
+        assert_eq!(distance, Some(1));
+    }
+
+    #[test]
+    fn test_rect_distance_same_rect() {
+        let distance = Rect(1, 1, 2, 2).distance_to(&Rect(1, 1, 2, 2));
+        assert_eq!(distance, None);
+    }
+
+    #[test]
+    fn test_rect_distance_overlap() {
+        let distance = Rect(1, 1, 3, 3).distance_to(&Rect(3, 3, 1, 1));
+        assert_eq!(distance, None);
     }
 }

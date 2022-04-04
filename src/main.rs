@@ -4,29 +4,33 @@ extern crate rand;
 use rand::prelude::SliceRandom;
 use rand::{Rng, thread_rng};
 use rand::rngs::ThreadRng;
-use maze::{Direction, Vec2D, Rect};
+use maze::{PPM, Color, Direction, Vec2D, Rect};
 
 const CELL_SIZE: i32 = 7;
-const DARK_COLOR: (u32, u32, u32) = (0, 0, 0);
-const LIGHT_COLOR: (u32, u32, u32) = (199, 192, 177);
+const DARK_COLOR: Color = (0, 0, 0);
+const LIGHT_COLOR: Color = (199, 192, 177);
 
-const WINDING_PERCENT: u32 = 80;
+const WINDING_PERCENT: i32 = 0;
 
 fn main() {
-    let mut maze = Maze::new(110, 70);
+    let mut maze = Maze::new(115, 81);
     maze.draw_rooms(400);
     maze.fill_maze();
     maze.print_maze();
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Tile {
+    Floor,
+    Wall
+}
+
 struct Maze {
-    width: i32,
-    height: i32,
+    image: PPM,
 
     bounds: Rect,
 
-    contents: Vec<(u32, u32, u32)>,
-    cells: Vec<bool>,
+    cells: Vec<Tile>,
     rooms: Vec<Rect>,
 
     rnd: ThreadRng,
@@ -34,17 +38,20 @@ struct Maze {
 
 impl Maze {
     pub fn new(grid_width: i32, grid_height: i32) -> Self {
-        let width = grid_width * CELL_SIZE + 1;
-        let height = grid_height * CELL_SIZE + 1;
+        if grid_width % 2 == 0 || grid_height % 2 == 0 {
+            panic!("Grid must be odd-sized!");
+        }
 
         Self {
-            width,
-            height,
+            image: PPM::new(
+                grid_width * CELL_SIZE + 1,
+                grid_height * CELL_SIZE + 1,
+                DARK_COLOR,
+            ),
 
             bounds: Rect(0, 0, grid_width, grid_height),
 
-            contents: vec![DARK_COLOR; (width * height) as usize],
-            cells: vec![false; (grid_width * grid_height) as usize],
+            cells: vec![Tile::Wall; (grid_width * grid_height) as usize],
             rooms: Vec::new(),
 
             rnd: thread_rng(),
@@ -52,7 +59,14 @@ impl Maze {
     }
 
     pub fn fill_maze(&mut self) {
-        self.do_fill_maze(Vec2D(0, 0))
+        for y in (1..self.bounds.height()).step_by(2) {
+            for x in (1..self.bounds.width()).step_by(2) {
+                let cell = Vec2D(x, y);
+                if self.get_tile(cell) == Tile::Wall {
+                    self.do_fill_maze(cell);
+                }
+            }
+        }
     }
 
     fn do_fill_maze(&mut self, start: Vec2D) {
@@ -92,10 +106,11 @@ impl Maze {
     }
 
     fn can_cell_be_carved(&self, &pos: &Vec2D, &d: &Direction) -> bool {
-        self.bounds.contains(pos + d.dir() * 3) && !self.is_cell_carved(pos + d.dir() * 2)
+        self.bounds.contains(pos + d.dir() * 3)
+            && self.get_tile(pos + d.dir() * 2) == Tile::Wall
     }
 
-    fn is_cell_carved(&self, Vec2D(x, y): Vec2D) -> bool {
+    fn get_tile(&self, Vec2D(x, y): Vec2D) -> Tile {
         self.cells[(y * self.bounds.width() + x) as usize]
     }
 
@@ -105,7 +120,7 @@ impl Maze {
     ) {
         for _ in 0..attempts {
             let room = self.gen_rectangle();
-            if self.rooms.iter().all(|r| r.is_outside_of(&room)) {
+            if self.rooms.iter().all(|r| r.distance_to(&room).unwrap_or(0) > 0) {
                 self.draw_room(&room);
                 self.rooms.push(room);
             }
@@ -115,68 +130,55 @@ impl Maze {
     fn gen_rectangle(&mut self) -> Rect {
         let rnd = &mut self.rnd;
         let size = rnd.gen_range(2..4) * 2 + 1;
-        let rectangularity = rnd.gen_range(0..1 + size / 2) * 2;
+        let rectangularity = rnd.gen_range(0..(1 + size / 2)) * 2;
 
-        let (w, h) = if rnd.gen_bool(0.5) {
+        let (width, height) = if rnd.gen_bool(0.5) {
             (size + rectangularity, size)
         } else {
             (size, size + rectangularity)
         };
 
-        let x = rnd.gen_range(0..(self.bounds.width() - w) / 2) * 2 + 1;
-        let y = rnd.gen_range(0..(self.bounds.height() - h) / 2) * 2 + 1;
+        let x = rnd.gen_range(0..(self.bounds.width() - width) / 2) * 2 + 1;
+        let y = rnd.gen_range(0..(self.bounds.height() - height) / 2) * 2 + 1;
 
-        Rect(x, y, w, h)
+        Rect(x, y, width, height)
     }
 
     fn draw_room(
         &mut self,
-        &Rect(x, y, w, h): &Rect,
+        &rect: &Rect,
     ) {
-        // Leave a border around the rectangle so that the maze doesn't touch it
-        for i in 1..h-1 {
-            for j in 1..w-1 {
-                self.carve(Vec2D((x + j) as i32, (y + i) as i32));
-            }
+        let rnd = &mut self.rnd;
+        let r = rnd.gen_range(125..=255);
+        let g = rnd.gen_range(125..=255);
+        let b = rnd.gen_range(125..=255);
+
+        for point in rect.into_iter() {
+            self.carve_cell(point, (r, g, b));
         }
     }
 
     // Graphics primitives
 
-    fn set_cell(&mut self, Vec2D(x, y): Vec2D, value: bool) {
+    fn set_cell(&mut self, Vec2D(x, y): Vec2D, value: Tile) {
         self.cells[(y * self.bounds.width() + x) as usize] = value;
     }
 
-    fn carve(&mut self, Vec2D(x, y): Vec2D) {
-        self.set_cell(Vec2D(x, y), true);
+    fn carve(&mut self, v: Vec2D) {
+        self.carve_cell(v, LIGHT_COLOR);
+    }
+
+    fn carve_cell(&mut self, Vec2D(x, y): Vec2D, color: Color) {
+        self.set_cell(Vec2D(x, y), Tile::Floor);
 
         // Convert to pixel coordinates
         let (x, y) = (x * CELL_SIZE, y * CELL_SIZE);
 
         // Make room for a border the color of DARK_COLOR
-        self.draw_rectangle(LIGHT_COLOR, &Rect(x + 1, y + 1, CELL_SIZE - 1, CELL_SIZE - 1));
-    }
-
-    fn draw_rectangle(
-        &mut self,
-        color: (u32, u32, u32),
-        &Rect(x, y, w, h): &Rect,
-    ) {
-        for j in y..(y+h) {
-            for i in x..(x+w) {
-                self.contents[(j * self.width + i) as usize] = color;
-            }
-        }
+        self.image.draw_rectangle(&Rect(x + 1, y + 1, CELL_SIZE - 1, CELL_SIZE - 1), color);
     }
 
     fn print_maze(&self) {
-        println!("P3\n{} {}\n255\n", self.width, self.height);
-
-        for j in 0..self.height {
-            for i in 0..self.width {
-                let (r, g, b) = self.contents[(j * self.width + i) as usize];
-                println!("{} {} {}", r, g, b);
-            }
-        }
+        self.image.print();
     }
 }
