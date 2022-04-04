@@ -124,7 +124,7 @@ impl Rect {
 
     pub fn contains(&self, Vec2D(i, j): Vec2D) -> bool {
         let &Rect(x, y, w, h) = self;
-        x < i && i < (x + w - 1) && y < j && j < (y + h - 1)
+        x <= i && i < x + w && y <= j && j < y + h
     }
 
     pub fn x(&self) -> i32 {

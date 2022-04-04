@@ -1,6 +1,8 @@
+extern crate clap;
 extern crate maze;
 extern crate rand;
 
+use clap::Parser;
 use rand::prelude::SliceRandom;
 use rand::{Rng, thread_rng};
 use rand::rngs::ThreadRng;
@@ -12,8 +14,15 @@ const LIGHT_COLOR: Color = (199, 192, 177);
 
 const WINDING_PERCENT: i32 = 0;
 
+#[derive(Parser, Debug)]
+struct Args {
+    #[clap(long)]
+    animate: bool,
+}
+
 fn main() {
-    let mut maze = Maze::new(115, 81);
+    let args = Args::parse();
+    let mut maze = Maze::new(115, 83, args.animate);
     maze.draw_rooms(400);
     maze.fill_maze();
     maze.print_maze();
@@ -33,11 +42,12 @@ struct Maze {
     cells: Vec<Tile>,
     rooms: Vec<Rect>,
 
+    animate: bool,
     rnd: ThreadRng,
 }
 
 impl Maze {
-    pub fn new(grid_width: i32, grid_height: i32) -> Self {
+    pub fn new(grid_width: i32, grid_height: i32, animate: bool) -> Self {
         if grid_width % 2 == 0 || grid_height % 2 == 0 {
             panic!("Grid must be odd-sized!");
         }
@@ -54,6 +64,7 @@ impl Maze {
             cells: vec![Tile::Wall; (grid_width * grid_height) as usize],
             rooms: Vec::new(),
 
+            animate,
             rnd: thread_rng(),
         }
     }
@@ -75,6 +86,10 @@ impl Maze {
 
         cells.push(start);
         self.carve(start);
+
+        if self.animate {
+            self.print_maze();
+        }
 
         while !cells.is_empty() {
             let &cell = cells.last().unwrap();
@@ -101,6 +116,10 @@ impl Maze {
                 self.carve(cell + d.dir() * 2);
 
                 cells.push(cell + d.dir() * 2);
+
+                if self.animate {
+                    self.print_maze();
+                }
             }
         }
     }
@@ -123,6 +142,10 @@ impl Maze {
             if self.rooms.iter().all(|r| r.distance_to(&room).unwrap_or(0) > 0) {
                 self.draw_room(&room);
                 self.rooms.push(room);
+
+                if self.animate {
+                    self.print_maze();
+                }
             }
         }
     }
