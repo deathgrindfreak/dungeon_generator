@@ -1,7 +1,34 @@
 use std::ops;
 use std::slice::Iter;
 
-pub type Color = (u32, u32, u32);
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Color(pub u32, pub u32, pub u32);
+
+impl Color {
+    pub fn lighter(&self, percentage: f64) -> Color {
+        if percentage > 1.0 {
+            panic!("Percentage should be less than 1!");
+        }
+
+        Self (
+            (self.0 as f64 * (1.0 + percentage)).floor() as u32,
+            (self.1 as f64 * (1.0 + percentage)).floor() as u32,
+            (self.2 as f64 * (1.0 + percentage)).floor() as u32,
+        )
+    }
+
+    pub fn darker(&self, percentage: f64) -> Color {
+        if percentage > 1.0 {
+            panic!("Percentage should be less than 1!");
+        }
+
+        Self (
+            (self.0 as f64 * percentage).floor() as u32,
+            (self.1 as f64 * percentage).floor() as u32,
+            (self.2 as f64 * percentage).floor() as u32,
+        )
+    }
+}
 
 pub struct PPM {
     width: i32,
@@ -23,7 +50,7 @@ impl PPM {
     pub fn set(
         &mut self,
         &Vec2D(i, j): &Vec2D,
-        color: (u32, u32, u32),
+        color: Color,
     ) {
         if !self.bounds.contains(Vec2D(i, j)) {
             panic!("Point ({}, {}) would be out of bounds ({:?})!", i, j, self.bounds);
@@ -41,7 +68,7 @@ impl PPM {
     pub fn draw_rectangle(
         &mut self,
         &rect: &Rect,
-        color: (u32, u32, u32),
+        color: Color,
     ) {
         for v in rect.into_iter() {
             self.set(&v, color);
@@ -53,7 +80,7 @@ impl PPM {
 
         for j in 0..self.height {
             for i in 0..self.width {
-                let (r, g, b) = self.get(&Vec2D(i, j));
+                let Color(r, g, b) = self.get(&Vec2D(i, j));
                 println!("{} {} {}", r, g, b);
             }
         }

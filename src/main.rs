@@ -9,8 +9,8 @@ use rand::rngs::ThreadRng;
 use maze::{PPM, Color, Direction, Vec2D, Rect};
 
 const CELL_SIZE: i32 = 7;
-const DARK_COLOR: Color = (0, 0, 0);
-const LIGHT_COLOR: Color = (199, 192, 177);
+const DARK_COLOR: Color = Color(0, 0, 0);
+const LIGHT_COLOR: Color = Color(199, 192, 177);
 
 const WINDING_PERCENT: i32 = 0;
 
@@ -22,10 +22,7 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-    let mut maze = Maze::new(115, 83, args.animate);
-    maze.draw_rooms(400);
-    maze.fill_maze();
-    maze.print_maze();
+    Maze::new(115, 83, args.animate).run();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -69,7 +66,50 @@ impl Maze {
         }
     }
 
-    pub fn fill_maze(&mut self) {
+    pub fn run(&mut self) {
+        self.draw_rooms(400);
+        self.fill_maze();
+        self.find_connectors();
+        self.print_maze();
+    }
+
+    fn find_connectors(&mut self) {
+        let connectors: Vec<(Rect, Vec<Vec2D>)> = self.rooms.iter().map(|&room| {
+            let connected_rooms: Vec<Vec2D> = room.into_iter().filter_map(|e| {
+                is_edge_and_not_corner(&room, &e)
+                    .filter(|&(v, d)| {
+                        self.bounds.contains(v + 3 * d.dir())
+                            && self.get_tile(v + 2 * d.dir()) == Tile::Floor
+                    })
+                    .map(|(v, d)| v + d.dir())
+            }).collect();
+
+            (room, connected_rooms)
+        }).collect();
+
+        for (_, cs) in connectors.iter() {
+            cs.iter().for_each(|&c| self.carve_cell(c, Color(230, 100, 0)));
+        }
+
+        fn is_edge_and_not_corner(
+            &Rect(x, y, w, h): &Rect,
+            &v @ Vec2D(i, j): &Vec2D
+        ) -> Option<(Vec2D, Direction)> {
+            if x < i && i < x + w - 1 && j == y {
+                Some((v, Direction::N))
+            } else if x < i && i < x + w - 1 && j == y + h - 1 {
+                Some((v, Direction::S))
+            } else if i == x && y < j && j < y + h - 1 {
+                Some((v, Direction::W))
+            } else if i == x + w - 1 && y < j && j < y + h - 1 {
+                Some((v, Direction::E))
+            } else {
+                None
+            }
+        }
+    }
+
+    fn fill_maze(&mut self) {
         for y in (1..self.bounds.height()).step_by(2) {
             for x in (1..self.bounds.width()).step_by(2) {
                 let cell = Vec2D(x, y);
@@ -133,7 +173,7 @@ impl Maze {
         self.cells[(y * self.bounds.width() + x) as usize]
     }
 
-    pub fn draw_rooms(
+    fn draw_rooms(
         &mut self,
         attempts: usize
     ) {
@@ -171,13 +211,14 @@ impl Maze {
         &mut self,
         &rect: &Rect,
     ) {
+        // Give it a random color, that's kind of light
         let rnd = &mut self.rnd;
         let r = rnd.gen_range(125..=255);
         let g = rnd.gen_range(125..=255);
         let b = rnd.gen_range(125..=255);
 
         for point in rect.into_iter() {
-            self.carve_cell(point, (r, g, b));
+            self.carve_cell(point, Color(r, g, b));
         }
     }
 
@@ -191,13 +232,16 @@ impl Maze {
         self.carve_cell(v, LIGHT_COLOR);
     }
 
-    fn carve_cell(&mut self, Vec2D(x, y): Vec2D, color: Color) {
-        self.set_cell(Vec2D(x, y), Tile::Floor);
+    fn carve_cell(&mut self, v @ Vec2D(x, y): Vec2D, color: Color) {
+        self.set_cell(v, Tile::Floor);
 
         // Convert to pixel coordinates
         let (x, y) = (x * CELL_SIZE, y * CELL_SIZE);
 
-        // Make room for a border the color of DARK_COLOR
+        // Create a border slightly darker than the color
+        self.image.draw_rectangle(&Rect(x, y, CELL_SIZE, CELL_SIZE), color.darker(0.70));
+
+        // Allow room for border
         self.image.draw_rectangle(&Rect(x + 1, y + 1, CELL_SIZE - 1, CELL_SIZE - 1), color);
     }
 
