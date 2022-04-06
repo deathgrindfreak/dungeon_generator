@@ -1,6 +1,8 @@
 # Dungeon Generator
 Generates a random dungeon.  This is based entirely off of the great blog post by [Bob Nystrom](http://journal.stuffwithstuff.com/2014/12/21/rooms-and-mazes/).
 
+![301x225 sized dungeon](dungeon.png)
+
 ## Command Line Arguments
 ``` text
 dungeon_generator 
