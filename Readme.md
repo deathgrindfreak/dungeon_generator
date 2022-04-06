@@ -23,6 +23,7 @@ OPTIONS:
                                  [default: 121]
 ```
 
-### Sample animation
-If you pipe to `ffmpeg` with the `--animate`, you can also view how the dungeon is actually generated (along with some completely unnecessary coloration).
+## Animation
+If you pipe to `ffmpeg` with the `--animate` argument, you can also view how the dungeon is actually generated (along with some completely unnecessary coloration).
+
 ![gif showing a dungeon being generated](dungeon.gif)
