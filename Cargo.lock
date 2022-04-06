@@ -62,6 +62,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dungeon_generator"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "rand",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -114,14 +122,6 @@ name = "libc"
 version = "0.2.120"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad5c14e80759d0939d013e6ca49930e59fc53dd8e5009132f76240c179380c09"
-
-[[package]]
-name = "maze"
-version = "0.1.0"
-dependencies = [
- "clap",
- "rand",
-]
 
 [[package]]
 name = "memchr"

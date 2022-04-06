@@ -1,5 +1,5 @@
 extern crate clap;
-extern crate maze;
+extern crate dungeon_generator;
 extern crate rand;
 
 use std::collections::HashSet;
@@ -8,7 +8,7 @@ use clap::Parser;
 use rand::prelude::SliceRandom;
 use rand::{Rng, thread_rng};
 use rand::rngs::ThreadRng;
-use maze::{PPM, Color, Direction, Vec2D, Rect};
+use dungeon_generator::{PPM, Color, Direction, Vec2D, Rect};
 
 const CELL_SIZE: i32 = 7;
 const DARK_COLOR: Color = Color(0, 0, 0);
@@ -25,7 +25,7 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-    Maze::new(115, 83, args.animate).run();
+    Dungeon::new(115, 83, args.animate).generate();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -35,7 +35,7 @@ enum Tile {
     Door,
 }
 
-struct Maze {
+struct Dungeon {
     image: PPM,
 
     bounds: Rect,
@@ -47,7 +47,7 @@ struct Maze {
     rnd: ThreadRng,
 }
 
-impl Maze {
+impl Dungeon {
     pub fn new(grid_width: i32, grid_height: i32, animate: bool) -> Self {
         if grid_width % 2 == 0 || grid_height % 2 == 0 {
             panic!("Grid must be odd-sized!");
@@ -70,12 +70,12 @@ impl Maze {
         }
     }
 
-    pub fn run(&mut self) {
+    pub fn generate(&mut self) {
         self.draw_rooms(200);
         self.fill_maze();
         self.find_connectors();
         self.remove_dead_ends();
-        self.print_maze();
+        self.print_dungeon();
     }
 
     fn remove_dead_ends(&mut self) {
@@ -114,7 +114,7 @@ impl Maze {
             self.fill_cell(cell);
 
             if self.animate {
-                self.print_maze();
+                self.print_dungeon();
             }
 
             if let Some(d) = Direction::iterator().find(|&d| self.get_tile(cell + d.dir()) == Tile::Floor) {
@@ -176,7 +176,7 @@ impl Maze {
             }
 
             if self.animate {
-                self.print_maze();
+                self.print_dungeon();
             }
         }
 
@@ -217,7 +217,7 @@ impl Maze {
         self.carve_floor(start);
 
         if self.animate {
-            self.print_maze();
+            self.print_dungeon();
         }
 
         while !cells.is_empty() {
@@ -247,7 +247,7 @@ impl Maze {
                 cells.push(cell + d.dir() * 2);
 
                 if self.animate {
-                    self.print_maze();
+                    self.print_dungeon();
                 }
             }
         }
@@ -273,7 +273,7 @@ impl Maze {
                 self.rooms.push(room);
 
                 if self.animate {
-                    self.print_maze();
+                    self.print_dungeon();
                 }
             }
         }
@@ -351,7 +351,7 @@ impl Maze {
         self.image.draw_rectangle(&Rect(x + 1, y + 1, CELL_SIZE - 1, CELL_SIZE - 1), color);
     }
 
-    fn print_maze(&self) {
+    fn print_dungeon(&self) {
         self.image.print();
     }
 }
