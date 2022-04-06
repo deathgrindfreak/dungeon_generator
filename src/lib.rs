@@ -87,7 +87,7 @@ impl PPM {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Vec2D(pub i32, pub i32);
 
 impl ops::Mul<i32> for Vec2D {

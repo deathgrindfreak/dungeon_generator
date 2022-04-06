@@ -2,6 +2,8 @@ extern crate clap;
 extern crate maze;
 extern crate rand;
 
+use std::collections::HashSet;
+
 use clap::Parser;
 use rand::prelude::SliceRandom;
 use rand::{Rng, thread_rng};
@@ -87,8 +89,35 @@ impl Maze {
             (room, connected_rooms)
         }).collect();
 
-        for (_, cs) in connectors.iter() {
-            cs.iter().for_each(|&c| self.carve_cell(c, Color(230, 100, 0)));
+        let mut all_connectors: HashSet<Vec2D> = connectors
+            .iter()
+            .flat_map(|(_, r)| r)
+            .map(|&d| d)
+            .collect();
+
+        for (room, cs) in connectors.iter() {
+            let available_connectors: Vec<Vec2D> = cs
+                .iter()
+                .filter(|&c| all_connectors.contains(c))
+                .map(|&c| c)
+                .collect();
+
+            let &door = available_connectors.choose(&mut self.rnd).unwrap();
+            self.carve_cell(door, Color(230, 100, 0));
+            self.draw_room(room, Some(LIGHT_COLOR));
+
+            for &c in available_connectors.iter() {
+                // Randomly open a passage that's to be culled
+                if c != door && self.rnd.gen_bool(1.0 / 50.0) {
+                    self.carve_cell(c, Color(230, 100, 0));
+                }
+
+                all_connectors.remove(&c);
+            }
+
+            if self.animate {
+                self.print_maze();
+            }
         }
 
         fn is_edge_and_not_corner(
@@ -180,7 +209,7 @@ impl Maze {
         for _ in 0..attempts {
             let room = self.gen_rectangle();
             if self.rooms.iter().all(|r| r.distance_to(&room).unwrap_or(0) > 0) {
-                self.draw_room(&room);
+                self.draw_room(&room, None);
                 self.rooms.push(room);
 
                 if self.animate {
@@ -210,15 +239,19 @@ impl Maze {
     fn draw_room(
         &mut self,
         &rect: &Rect,
+        default_color: Option<Color>
     ) {
-        // Give it a random color, that's kind of light
-        let rnd = &mut self.rnd;
-        let r = rnd.gen_range(125..=255);
-        let g = rnd.gen_range(125..=255);
-        let b = rnd.gen_range(125..=255);
+        let color = default_color.unwrap_or_else(|| {
+            // Give it a random color, that's kind of light
+            let rnd = &mut self.rnd;
+            let r = rnd.gen_range(125..=255);
+            let g = rnd.gen_range(125..=255);
+            let b = rnd.gen_range(125..=255);
+            Color(r, g, b)
+        });
 
         for point in rect.into_iter() {
-            self.carve_cell(point, Color(r, g, b));
+            self.carve_cell(point, color);
         }
     }
 
