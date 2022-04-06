@@ -17,15 +17,29 @@ const DOOR_COLOR: Color = Color(230, 100, 0);
 
 const WINDING_PERCENT: i32 = 0;
 
+/// Generates a random dungeon
 #[derive(Parser, Debug)]
 struct Args {
+    /// Generates a PPM stream (intended for created video with ffmpeg, etc ...)
     #[clap(long)]
     animate: bool,
+
+    /// The width of the dungeon in "grids" (This number must be odd)
+    #[clap(short, long, default_value_t = 121)]
+    width: i32,
+
+    /// The height of the dungeon in "grids" (This number must be odd)
+    #[clap(short, long, default_value_t = 91)]
+    height: i32,
+
+    /// The number attempts the program should use to place rooms
+    #[clap(short, long, default_value_t = 200)]
+    attempts: i32,
 }
 
 fn main() {
     let args = Args::parse();
-    Dungeon::new(115, 83, args.animate).generate();
+    Dungeon::new(args).generate();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -43,12 +57,20 @@ struct Dungeon {
     cells: Vec<Tile>,
     rooms: Vec<Rect>,
 
+    attempts: i32,
     animate: bool,
     rnd: ThreadRng,
 }
 
 impl Dungeon {
-    pub fn new(grid_width: i32, grid_height: i32, animate: bool) -> Self {
+    pub fn new(args: Args) -> Self {
+        let Args {
+            width: grid_width,
+            height: grid_height,
+            animate,
+            attempts,
+        } = args;
+
         if grid_width % 2 == 0 || grid_height % 2 == 0 {
             panic!("Grid must be odd-sized!");
         }
@@ -65,13 +87,14 @@ impl Dungeon {
             cells: vec![Tile::Wall; (grid_width * grid_height) as usize],
             rooms: Vec::new(),
 
+            attempts,
             animate,
             rnd: thread_rng(),
         }
     }
 
     pub fn generate(&mut self) {
-        self.draw_rooms(200);
+        self.draw_rooms();
         self.fill_maze();
         self.find_connectors();
         self.remove_dead_ends();
@@ -262,11 +285,8 @@ impl Dungeon {
         self.cells[(y * self.bounds.width() + x) as usize]
     }
 
-    fn draw_rooms(
-        &mut self,
-        attempts: usize
-    ) {
-        for _ in 0..attempts {
+    fn draw_rooms(&mut self) {
+        for _ in 0..self.attempts {
             let room = self.gen_rectangle();
             if self.rooms.iter().all(|r| r.distance_to(&room).unwrap_or(0) > 0) {
                 self.draw_room(&room, None);
