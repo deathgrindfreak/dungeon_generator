@@ -22,3 +22,7 @@ OPTIONS:
     -w, --width <WIDTH>          The width of the dungeon in "grids" (This number must be odd)
                                  [default: 121]
 ```
+
+### Sample animation
+If you pipe to `ffmpeg` with the `--animate`, you can also view how the dungeon is actually generated (along with some completely unnecessary coloration).
+![gif showing a dungeon being generated](dungeon.gif)
