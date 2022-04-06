@@ -134,6 +134,12 @@ impl Dungeon {
 
         while !dead_ends.is_empty() {
             let cell = dead_ends.pop().unwrap();
+
+            // If we have a door as a neighbor, just skip filling this in
+            if Direction::iterator().any(|&d| self.get_tile(cell + d.dir()) == Tile::Door) {
+                continue;
+            }
+
             self.fill_cell(cell);
 
             if self.animate {
@@ -144,10 +150,7 @@ impl Dungeon {
                 let next_cell = cell + d.dir();
 
                 let number_of_floors = Direction::iterator().map(|&d| {
-                    match self.get_tile(next_cell + d.dir()) {
-                        Tile::Floor | Tile::Door => 1,
-                        _ => 0,
-                    }
+                    if self.get_tile(next_cell + d.dir()) == Tile::Floor { 1 } else { 0 }
                 }).sum::<i32>();
 
                 // If we're still in a single, long corridor keep removing
