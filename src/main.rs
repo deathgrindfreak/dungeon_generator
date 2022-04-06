@@ -13,6 +13,7 @@ use maze::{PPM, Color, Direction, Vec2D, Rect};
 const CELL_SIZE: i32 = 7;
 const DARK_COLOR: Color = Color(0, 0, 0);
 const LIGHT_COLOR: Color = Color(199, 192, 177);
+const DOOR_COLOR: Color = Color(230, 100, 0);
 
 const WINDING_PERCENT: i32 = 0;
 
@@ -30,7 +31,8 @@ fn main() {
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Tile {
     Floor,
-    Wall
+    Wall,
+    Door,
 }
 
 struct Maze {
@@ -69,10 +71,68 @@ impl Maze {
     }
 
     pub fn run(&mut self) {
-        self.draw_rooms(400);
+        self.draw_rooms(200);
         self.fill_maze();
         self.find_connectors();
+        self.remove_dead_ends();
         self.print_maze();
+    }
+
+    fn remove_dead_ends(&mut self) {
+        let room_cells: HashSet<Vec2D> = self.rooms
+                                             .iter()
+                                             .flat_map(|&r| r.into_iter())
+                                             .collect();
+
+        let mut dead_ends: Vec<Vec2D> =
+            self.cells
+                .iter()
+                .enumerate()
+                .filter_map(|(i, t)| {
+                    match t {
+                        Tile::Floor | Tile::Door => {
+                            let x = i as i32 % self.bounds.width();
+                            let y = (i as i32 - x) / self.bounds.width();
+                            Some(Vec2D(x, y))
+                        },
+                        Tile::Wall => None,
+                    }
+                })
+                .into_iter()
+                .collect::<HashSet<Vec2D>>()
+                .difference(&room_cells)
+                .filter(|&&cell| {
+                    Direction::iterator().map(|&d| {
+                        if self.get_tile(cell + d.dir()) == Tile::Floor { 1 } else { 0 }
+                    }).sum::<i32>() == 1
+                })
+                .map(|&d| d)
+                .collect();
+
+        while !dead_ends.is_empty() {
+            let cell = dead_ends.pop().unwrap();
+            self.fill_cell(cell);
+
+            if self.animate {
+                self.print_maze();
+            }
+
+            if let Some(d) = Direction::iterator().find(|&d| self.get_tile(cell + d.dir()) == Tile::Floor) {
+                let next_cell = cell + d.dir();
+
+                let number_of_floors = Direction::iterator().map(|&d| {
+                    match self.get_tile(next_cell + d.dir()) {
+                        Tile::Floor | Tile::Door => 1,
+                        _ => 0,
+                    }
+                }).sum::<i32>();
+
+                // If we're still in a single, long corridor keep removing
+                if number_of_floors == 1 {
+                    dead_ends.push(next_cell);
+                }
+            }
+        }
     }
 
     fn find_connectors(&mut self) {
@@ -103,13 +163,13 @@ impl Maze {
                 .collect();
 
             let &door = available_connectors.choose(&mut self.rnd).unwrap();
-            self.carve_cell(door, Color(230, 100, 0));
+            self.carve_door(door);
             self.draw_room(room, Some(LIGHT_COLOR));
 
             for &c in available_connectors.iter() {
                 // Randomly open a passage that's to be culled
                 if c != door && self.rnd.gen_bool(1.0 / 50.0) {
-                    self.carve_cell(c, Color(230, 100, 0));
+                    self.carve_door(c);
                 }
 
                 all_connectors.remove(&c);
@@ -154,7 +214,7 @@ impl Maze {
         let mut last_dir: Option<Direction> = None;
 
         cells.push(start);
-        self.carve(start);
+        self.carve_floor(start);
 
         if self.animate {
             self.print_maze();
@@ -181,8 +241,8 @@ impl Maze {
 
                 let d = last_dir.unwrap();
 
-                self.carve(cell + d.dir());
-                self.carve(cell + d.dir() * 2);
+                self.carve_floor(cell + d.dir());
+                self.carve_floor(cell + d.dir() * 2);
 
                 cells.push(cell + d.dir() * 2);
 
@@ -251,7 +311,7 @@ impl Maze {
         });
 
         for point in rect.into_iter() {
-            self.carve_cell(point, color);
+            self.carve_cell(point, color, Tile::Floor);
         }
     }
 
@@ -261,12 +321,25 @@ impl Maze {
         self.cells[(y * self.bounds.width() + x) as usize] = value;
     }
 
-    fn carve(&mut self, v: Vec2D) {
-        self.carve_cell(v, LIGHT_COLOR);
+    fn fill_cell(&mut self, v: Vec2D) {
+        self.carve_cell(v, DARK_COLOR, Tile::Wall);
     }
 
-    fn carve_cell(&mut self, v @ Vec2D(x, y): Vec2D, color: Color) {
-        self.set_cell(v, Tile::Floor);
+    fn carve_floor(&mut self, v: Vec2D) {
+        self.carve_cell(v, LIGHT_COLOR, Tile::Floor);
+    }
+
+    fn carve_door(&mut self, v: Vec2D) {
+        self.carve_cell(v, DOOR_COLOR, Tile::Door);
+    }
+
+    fn carve_cell(
+        &mut self,
+        v @ Vec2D(x, y): Vec2D,
+        color: Color,
+        tile: Tile,
+    ) {
+        self.set_cell(v, tile);
 
         // Convert to pixel coordinates
         let (x, y) = (x * CELL_SIZE, y * CELL_SIZE);
